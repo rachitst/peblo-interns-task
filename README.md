@@ -1,6 +1,6 @@
 # Peblo TV Mini — 3-Tier Streaming Catalogue Platform
 
-[![CI Pipeline](https://github.com/peblo/peblo-interns-task/actions/workflows/ci.yml/badge.svg)](https://github.com/peblo/peblo-interns-task/actions/workflows/ci.yml)
+[![CI Pipeline](https://github.com/<username>/peblo-interns-task/actions/workflows/ci.yml/badge.svg)](https://github.com/<username>/peblo-interns-task/actions/workflows/ci.yml)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.114-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://reactjs.org/)
