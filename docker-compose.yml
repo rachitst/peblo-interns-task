@@ -1,0 +1,86 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: peblo_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: peblo_user
+      POSTGRES_PASSWORD: peblo_password
+      POSTGRES_DB: peblo_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U peblo_user -d peblo_db"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 2s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: peblo_backend
+    restart: always
+    environment:
+      APP_ENV: development
+      DEBUG: "True"
+      PORT: 8000
+      DATABASE_URL: postgresql+asyncpg://peblo_user:peblo_password@db:5432/peblo_db
+      SYNC_DATABASE_URL: postgresql+psycopg2://peblo_user:peblo_password@db:5432/peblo_db
+      STORAGE_BACKEND: local
+      UPLOAD_DIR: /app/storage/uploads
+      PUBLISHED_DIR: /app/storage/published
+      REFERENCE_JSON_PATH: /app/reference.json
+      SEED_DATA_PATH: /app/data/seed_shows.json
+      SECRET_KEY: peblo-tv-mini-super-secret-key-2026
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - storage_data:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "alembic upgrade head &&
+             python -m app.scripts.seed_db &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  cms-ui:
+    build:
+      context: ./cms-ui
+      dockerfile: Dockerfile
+    container_name: peblo_cms_ui
+    restart: always
+    environment:
+      VITE_BACKEND_PROXY_URL: http://backend:8000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./cms-ui:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+
+  viewer-ui:
+    build:
+      context: ./viewer-ui
+      dockerfile: Dockerfile
+    container_name: peblo_viewer_ui
+    restart: always
+    environment:
+      VITE_BACKEND_PROXY_URL: http://backend:8000
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./viewer-ui:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  storage_data:

@@ -1,0 +1,133 @@
+name: Peblo TV Mini CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  backend-checks:
+    name: Backend Lint & Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install flake8 black
+
+      - name: Lint with Flake8 & Black
+        run: |
+          flake8 backend/app --count --select=E9,F63,F7,F82 --show-source --statistics
+          black --check backend/app
+
+      - name: Run Backend Test Suite
+        run: |
+          python backend/run_tests.py
+
+  frontend-cms:
+    name: CMS UI Build & TypeCheck
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: cms-ui/package.json
+
+      - name: Install CMS Dependencies
+        working-directory: ./cms-ui
+        run: npm install
+
+      - name: TypeScript Check & Vite Build
+        working-directory: ./cms-ui
+        run: npm run build
+
+  frontend-viewer:
+    name: Viewer UI Build & TypeCheck
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: viewer-ui/package.json
+
+      - name: Install Viewer Dependencies
+        working-directory: ./viewer-ui
+        run: npm install
+
+      - name: TypeScript Check & Vite Build
+        working-directory: ./viewer-ui
+        run: npm run build
+
+  docker-build:
+    name: Container Build Verification
+    needs: [backend-checks, frontend-cms, frontend-viewer]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Backend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: false
+          tags: peblo-backend:ci-test
+
+      - name: Build CMS UI Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./cms-ui
+          push: false
+          tags: peblo-cms-ui:ci-test
+
+      - name: Build Viewer UI Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./viewer-ui
+          push: false
+          tags: peblo-viewer-ui:ci-test
+
+  deploy-staging:
+    name: Simulated Cloud Deployment
+    needs: [docker-build]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Simulated Deployment
+        run: |
+          echo "================================================================="
+          echo "Deploying Peblo TV Mini to Staging Environment:"
+          echo "1. Push container images to Amazon ECR / Cloudflare Registry"
+          echo "2. Apply database migrations via Alembic task (alembic upgrade head)"
+          echo "3. Rolling update of ECS Fargate tasks for API, CMS UI, and Viewer UI"
+          echo "4. Invalidate Cloudflare CDN edge cache for /catalog/catalogue.json"
+          echo "================================================================="
